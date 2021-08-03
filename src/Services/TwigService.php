@@ -12,27 +12,30 @@ use Twig\Loader\FilesystemLoader;
 class TwigService
 {
     const VIEWS_PREFIX = __DIR__ . '/../Views/';
-    private Config $config;
     private $loadTwig;
     private $twig;
+
     /**
      * TwigService constructor.
      * @param Config $config
+     * @param string|null $viewsPath
+     * @param string $cachePath
      */
-    public function __construct(Config $config)
-    {
-        $this->config = $config;
+    public function __construct(
+        private Config $config,
+        private ?string $viewsPath = null,
+        private string $cachePath = __DIR__ . '/../../var/cache/views/'
+    ) {
     }
 
     /**
      * @param $controllerName
      * @param $controllerMethod
-     * @param null $path
      * @return bool
      */
-    public function needsTwig($controllerName, $controllerMethod, $path = null): bool
+    public function needsTwig($controllerName, $controllerMethod): bool
     {
-        $path = $path ?? self::VIEWS_PREFIX;
+        $path = $this->viewsPath ?? self::VIEWS_PREFIX;
         if (null === $this->loadTwig) {
             $this->loadTwig = file_exists(
                 $path .
@@ -45,15 +48,14 @@ class TwigService
     }
 
     /**
-     * @param string|null $path
      * @return Environment
      */
-    public function loadTwig(string $path = null): Environment
+    public function loadTwig(): Environment
     {
-        $path = $path ?? self::VIEWS_PREFIX;
+        $viewsPath = $this->viewsPath ?? self::VIEWS_PREFIX;
         $devMode = boolval($this->config->getConfigItem('devmode'));
-        $cache = $devMode ? false : __DIR__ . '/../../var/cache/views/';
-        $loader = new FilesystemLoader($path);
+        $cache = $devMode ? false : $this->cachePath;
+        $loader = new FilesystemLoader($viewsPath);
         $this->twig = new Environment($loader, ['cache' => $cache, 'debug' => $devMode]);
         return $this->twig;
     }
@@ -63,9 +65,6 @@ class TwigService
      * @param $method
      * @param $viewParams
      * @return string
-     * @throws LoaderError
-     * @throws RuntimeError
-     * @throws SyntaxError
      */
     public function render($name, $method, $viewParams): string
     {
